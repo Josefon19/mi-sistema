@@ -4,7 +4,7 @@
     "slug": "mi-sistema",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon-512.png",
     "scheme": "misistema",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -21,16 +21,21 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon-192.png",
+      "name": "Rastreador de Gastos Básicos",
+      "shortName": "Mis Gastos",
+      "themeColor": "#2ecc71",
+      "backgroundColor": "#ffffff",
+      "display": "standalone"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FFA600",
+            "image": "./public/images/logo.png",
+            "imageWidth": 200
         }
       ]
     ],
