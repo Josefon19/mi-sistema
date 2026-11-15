@@ -1,14 +1,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-  Pressable,
-  Text,
-  TextInput,
-  View,
-  StyleSheet,
-  ActivityIndicator
-} from "react-native";
-import { supabase } from "../lib/supabase"; // Importamos tu conexión real
+import { Pressable, Text, TextInput, View, StyleSheet, ActivityIndicator } from "react-native";
+import { supabase } from "../lib/supabase";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -16,17 +9,33 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Función para iniciar sesión con una cuenta existente
+  // Función genérica para validar antes de consultar a Supabase
+  function validarEntradas() {
+    const emailLimpio = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Expresión regular para correos
+
+    if (!emailLimpio || !password) {
+      setErrorMessage("Por favor, llena todos los campos.");
+      return false;
+    }
+    if (!emailRegex.test(emailLimpio)) {
+      setErrorMessage("Ingresa un correo electrónico válido.");
+      return false;
+    }
+    if (password.length < 6) {
+      setErrorMessage("La contraseña debe tener al menos 6 caracteres.");
+      return false;
+    }
+    return true;
+  }
+
   async function handleLogin() {
     setErrorMessage("");
-    if (!email.trim() || !password) {
-      setErrorMessage("Por favor, escribe tu correo y contraseña.");
-      return;
-    }
+    if (!validarEntradas()) return; // Detenemos la ejecución si falla la validación
 
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: email,
+      email: email.trim(), // Sanitizamos quitando espacios
       password: password,
     });
 
@@ -38,17 +47,13 @@ export default function LoginScreen() {
     }
   }
 
-  // Función para registrar un nuevo usuario en la base de datos
   async function handleSignUp() {
     setErrorMessage("");
-    if (!email.trim() || !password) {
-      setErrorMessage("Por favor, escribe un correo y contraseña para registrarte.");
-      return;
-    }
+    if (!validarEntradas()) return;
 
     setLoading(true);
     const { error, data } = await supabase.auth.signUp({
-      email: email,
+      email: email.trim(),
       password: password,
     });
 
@@ -58,8 +63,7 @@ export default function LoginScreen() {
     } else if (data.session) {
       router.replace("/");
     } else {
-      // Supabase por defecto pide confirmar el correo, puedes desactivar esto en su panel (Authentication > Providers > Email)
-      setErrorMessage("Registro exitoso. (Si activaste confirmación, revisa tu correo).");
+      setErrorMessage("Registro exitoso. Revisa tu correo.");
       setLoading(false);
     }
   }
@@ -76,7 +80,6 @@ export default function LoginScreen() {
         keyboardType="email-address"
         autoCapitalize="none"
       />
-      
       <TextInput
         style={styles.input}
         placeholder="Contraseña"
@@ -94,7 +97,6 @@ export default function LoginScreen() {
           <Pressable style={styles.button} onPress={handleLogin}>
             <Text style={styles.buttonText}>Iniciar Sesión</Text>
           </Pressable>
-
           <Pressable style={[styles.button, styles.signupButton]} onPress={handleSignUp}>
             <Text style={[styles.buttonText, styles.signupText]}>Crear Cuenta</Text>
           </Pressable>
@@ -105,52 +107,12 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: "#ffffff",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 40,
-    textAlign: "center",
-    color: "#2ecc71",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-  },
-  errorText: {
-    color: "#e74c3c",
-    textAlign: "center",
-    marginBottom: 15,
-    fontWeight: "bold",
-  },
-  button: {
-    backgroundColor: "#2ecc71",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  signupButton: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: "#2ecc71",
-  },
-  signupText: {
-    color: "#2ecc71",
-  },
+  container: { flex: 1, justifyContent: "center", padding: 20, backgroundColor: "#ffffff" },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 40, textAlign: "center", color: "#2ecc71" },
+  input: { borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 8, padding: 15, marginBottom: 20, fontSize: 16, backgroundColor: "#f9f9f9" },
+  errorText: { color: "#e74c3c", textAlign: "center", marginBottom: 15, fontWeight: "bold" },
+  button: { backgroundColor: "#2ecc71", padding: 15, borderRadius: 8, alignItems: "center", marginBottom: 15 },
+  buttonText: { color: "#ffffff", fontSize: 18, fontWeight: "bold" },
+  signupButton: { backgroundColor: "transparent", borderWidth: 2, borderColor: "#2ecc71" },
+  signupText: { color: "#2ecc71" },
 });

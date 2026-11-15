@@ -1,8 +1,8 @@
-import { View, Text, StyleSheet, Pressable, TextInput, FlatList } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import { router } from "expo-router";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { supabase } from "../lib/supabase";
-import { Ionicons } from '@expo/vector-icons'; // <-- Importación de los íconos
 
 interface Gasto {
   id: string;
@@ -15,6 +15,20 @@ export default function HomeScreen() {
   const [descripcion, setDescripcion] = useState("");
   const [cantidad, setCantidad] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
+
+  // Sanitiza el campo de texto para que solo acepte números y un punto decimal
+  function manejarCambioCantidad(texto: string) {
+    // Reemplaza cualquier cosa que no sea número o punto
+    let textoSanitizado = texto.replace(/[^0-9.]/g, '');
+    
+    // Evita que pongan más de un punto (ej. 10.5.2)
+    const partes = textoSanitizado.split('.');
+    if (partes.length > 2) {
+      textoSanitizado = partes[0] + '.' + partes.slice(1).join('');
+    }
+    
+    setCantidad(textoSanitizado);
+  }
 
   useEffect(() => {
     cargarGastos();
@@ -33,7 +47,18 @@ export default function HomeScreen() {
   const totalGastado = gastos.reduce((total, item) => total + Number(item.cantidad), 0);
 
   async function guardarGasto() {
-    if (!descripcion.trim() || !cantidad.trim()) return;
+    const descripcionLimpia = descripcion.trim();
+    const monto = parseFloat(cantidad);
+
+    // Validaciones estrictas
+    if (descripcionLimpia.length === 0) {
+      window.alert("La descripción del gasto no puede estar vacía.");
+      return;
+    }
+    if (isNaN(monto) || monto <= 0) {
+      window.alert("Por favor ingresa una cantidad válida mayor a 0.");
+      return;
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -41,25 +66,23 @@ export default function HomeScreen() {
     if (editandoId) {
       const { error } = await supabase
         .from('gastos')
-        .update({ descripcion, cantidad: parseFloat(cantidad) })
+        .update({ descripcion: descripcionLimpia, cantidad: monto }) // Usamos las variables limpias
         .eq('id', editandoId)
         .eq('user_id', user.id); 
 
-      if (error) {
-        console.error("Error al actualizar:", error.message);
-      } else {
-        setGastos(gastos.map(g => g.id === editandoId ? { ...g, descripcion, cantidad: parseFloat(cantidad) } : g));
+      if (error) console.error("Error al actualizar:", error.message);
+      else {
+        setGastos(gastos.map(g => g.id === editandoId ? { ...g, descripcion: descripcionLimpia, cantidad: monto } : g));
         limpiarFormulario();
       }
     } else {
       const { data, error } = await supabase
         .from('gastos')
-        .insert([{ user_id: user.id, descripcion, cantidad: parseFloat(cantidad) }])
+        .insert([{ user_id: user.id, descripcion: descripcionLimpia, cantidad: monto }]) // Usamos las variables limpias
         .select();
 
-      if (error) {
-        console.error("Error al guardar:", error.message);
-      } else if (data) {
+      if (error) console.error("Error al guardar:", error.message);
+      else if (data) {
         setGastos([data[0], ...gastos]);
         limpiarFormulario();
       }
@@ -76,15 +99,10 @@ export default function HomeScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase
-      .from('gastos')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
+    const { error } = await supabase.from('gastos').delete().eq('id', id).eq('user_id', user.id);
 
-    if (error) {
-      console.error("Error al eliminar:", error.message);
-    } else {
+    if (error) console.error("Error al eliminar:", error.message);
+    else {
       setGastos(gastos.filter(g => g.id !== id));
       if (editandoId === id) limpiarFormulario();
     }
@@ -96,14 +114,15 @@ export default function HomeScreen() {
     setEditandoId(null);
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.replace("/login");
-  }
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Resumen</Text>
+      {/* NUEVO ENCABEZADO CON ÍCONO DE PERFIL */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Resumen</Text>
+        <Pressable onPress={() => router.push("/profile")}>
+          <Ionicons name="person-circle" size={40} color="#2ecc71" />
+        </Pressable>
+      </View>
       
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Total Gastado</Text>
@@ -121,7 +140,7 @@ export default function HomeScreen() {
           style={[styles.input, { flex: 1, marginLeft: 10 }]}
           placeholder="$ 0.00"
           value={cantidad}
-          onChangeText={setCantidad}
+          onChangeText={manejarCambioCantidad} // <-- Usamos la nueva función aquí
           keyboardType="numeric"
         />
         <Pressable style={[styles.addButton, editandoId && styles.editButton]} onPress={guardarGasto}>
@@ -144,7 +163,6 @@ export default function HomeScreen() {
               <Text style={styles.gastoCantidad}>${Number(item.cantidad).toFixed(2)}</Text>
             </View>
             <View style={styles.accionesContainer}>
-              {/* Aquí reemplazamos los emojis por íconos de Ionicons */}
               <Pressable style={styles.accionBtn} onPress={() => prepararEdicion(item)}>
                 <Ionicons name="pencil" size={20} color="#3498db" />
               </Pressable>
@@ -156,17 +174,14 @@ export default function HomeScreen() {
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No hay gastos registrados aún.</Text>}
       />
-
-      <Pressable style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Cerrar Sesión</Text>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#f4f6f8" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, color: "#333", marginTop: 20 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: "bold", color: "#333" },
   card: { backgroundColor: "#2ecc71", padding: 25, borderRadius: 15, alignItems: "center", marginBottom: 20, elevation: 5 },
   cardTitle: { color: "#ffffff", fontSize: 16, opacity: 0.9, marginBottom: 10 },
   balance: { color: "#ffffff", fontSize: 36, fontWeight: "bold" },
@@ -183,6 +198,4 @@ const styles = StyleSheet.create({
   accionesContainer: { flexDirection: "row", gap: 15 },
   accionBtn: { padding: 5 },
   emptyText: { textAlign: "center", color: "#888", marginTop: 20 },
-  logoutButton: { backgroundColor: "#e74c3c", padding: 15, borderRadius: 8, alignItems: "center", marginTop: 20 },
-  logoutText: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
 });
